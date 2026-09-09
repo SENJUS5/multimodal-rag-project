@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 urls.txt
 .DS_Store
+run_mcp.sh

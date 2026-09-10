@@ -40,8 +40,7 @@ Different kinds of files need different handling, so each type takes its own pat
 
 - **Documents (PDFs, notes)** are split into readable chunks.
 - **Code** is split along natural boundaries — each function or class stays whole instead of being cut in half — so a search returns complete, sensible pieces of code.
-- **Images** are passed to an AI vision model that writes a rich description of what the image shows. That description is what becomes searchable.
-
+- **Images** are processed by a local Ollama vision model that writes a rich description of what the image shows. That description is what becomes searchable.
 Every chunk is then converted into a list of numbers called an *embedding*, which captures its meaning in a form a computer can compare quickly. All of it gets stored in a database.
 
 ### Getting answers out (retrieval)
@@ -76,11 +75,10 @@ These are the choices that separate this from a tutorial clone:
 | Layer | Choice |
 |-------|--------|
 | Vector + keyword storage | Supabase (Postgres) with `pgvector` and full-text search |
-| Embeddings | Voyage `voyage-3.5` (1024-dim) |
-| Image captioning | Claude vision, at ingestion time |
+| Embeddings | Voyage `voyage-3` (1024-dim) |
+| Image captioning | Ollama `qwen2.5vl:3b` (local vision model) |
 | AI connection | MCP server (Python, FastMCP) |
-| Language | Python 3.12 |
-
+| Language | Python |
 ## Project layout
 
 ```
@@ -97,7 +95,7 @@ server.py                         MCP server exposing search to Claude
 ## Setup
 
 1. **Database.** Run `sql/01_schema.sql` then `sql/02_search_fns.sql` in Supabase.
-2. **Keys.** Copy `.env.example` to `.env` and fill in Supabase, Voyage, and Anthropic keys.
+2. **Keys.** Copy `.env.example` to `.env` and fill in your Supabase and Voyage credentials. Image captioning runs locally through Ollama.
 3. **Install.** `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`
 
 ## Use
@@ -114,14 +112,12 @@ Test a search directly:
 python ingest/retrieval.py "how does the login flow work"
 ```
 
-Connect to Claude Desktop by adding the server to its config (see `claude_desktop_config.example.json`), then restart it. The search tools become available inside any conversation.
-
+Connect to Claude Desktop by adding the server to its config (see `claude_desktop_config.example.json`), then restart it. The MCP server exposes `rag_search`, `rag_search_typed`, and `rag_get_image` for grounded search and image retrieval.
 ## Honest notes
 
 - **On "token savings":** retrieval reduces tokens only versus a baseline of pasting large context by hand. Against careful, surgical pasting it mostly buys better *recall*, not cheaper conversations. The real value is accurate grounding across a scattered body of work, not a headline percentage.
-- **Conversations:** there is no live feed of chat history into the knowledge base; chats are exported to text and ingested like any other document.
-- **Cost:** embeddings are inexpensive; image captioning is the main cost, paid once per image at ingestion.
-
+- **Conversations:** there is no live feed of chat history into the knowledge base; conversations must be exported to text and ingested like any other document.
+- **Cost:** embeddings use Voyage API credits; image captioning runs locally through Ollama, so there is no per-image vision API charge.
 ## License
 
 MIT — see [LICENSE](LICENSE).

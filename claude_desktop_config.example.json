@@ -2,8 +2,7 @@
   "_comment": "Add this to your Claude Desktop config so it launches the RAG server.",
   "_location_macos": "~/Library/Application Support/Claude/claude_desktop_config.json",
   "_location_windows": "%APPDATA%\\Claude\\claude_desktop_config.json",
-  "_note": "Use the absolute path to your venv python and to server.py. Env vars are passed to the subprocess so the server can reach Supabase/Voyage/Anthropic.",
-
+  "_note": "Use the absolute path to your venv python and to server.py. Env vars are passed to the subprocess so the server can reach Supabase/Voyage, while image captioning runs locally through Ollama.",
   "mcpServers": {
     "multimodal-rag": {
       "command": "/absolute/path/to/multimodal-rag/.venv/bin/python",
@@ -12,7 +11,6 @@
         "SUPABASE_URL": "https://YOUR_PROJECT.supabase.co",
         "SUPABASE_SERVICE_KEY": "your_service_role_key",
         "VOYAGE_API_KEY": "pa-your_voyage_key",
-        "ANTHROPIC_API_KEY": "sk-ant-your_key"
       }
     }
   }

@@ -26,7 +26,7 @@ Companies are running into this same problem at a much larger scale. As they ado
 - **Understand images, not just text.** When an image goes in — a screenshot, a diagram, a chart — the system writes a detailed description of what's in it, so the image becomes findable by searching its contents.
 - **Find things by meaning *and* by exact wording.** If I search for a vague concept, it finds related material even if I didn't use the exact words. If I search for an exact function name or error message, it finds that precise match too. (More on why both matter below.)
 - **Work directly inside a Claude conversation.** Once connected, Claude can search the knowledge base on its own, mid-conversation, and answer using what it finds.
-- **Move with me to a new computer.** The knowledge itself lives in the cloud, so switching machines doesn't mean rebuilding everything.
+- **Keep the knowledge base in the cloud.** Indexed content and embeddings live in Supabase, so the database can be reused across machines. Source files and image paths still need to be available to the local ingestion/retrieval environment.
 
 ---
 

@@ -80,15 +80,39 @@ def rag_search_typed(query: str, source_type: str, top_k: int = 8) -> str:
 
 @mcp.tool()
 def rag_get_image(image_path: str) -> Image:
-    """Return the actual image at image_path (obtained from a search result's
-    image_path field) so it can be viewed directly, not just via its caption.
-    Use when a captioned image looks relevant and you need to see the real thing
-    — a diagram, screenshot, or chart."""
+    """Return a viewable version of an image, compressing large files."""
+
+    from PIL import Image as PILImage
+    import io
+
     p = Path(image_path)
     data = p.read_bytes()
-    media = IMAGE_MEDIA.get(p.suffix.lower(), "image/png")
-    return Image(data=data, format=media.split("/")[-1])
 
+    # Return original if already under 1 MB
+    if len(data) <= 1_000_000:
+        media = IMAGE_MEDIA.get(p.suffix.lower(), "image/png")
+        return Image(data=data, format=media.split("/")[-1])
+
+    # Resize and compress oversized images
+    img = PILImage.open(io.BytesIO(data))
+    img.thumbnail((1600, 1600))
+
+    output = io.BytesIO()
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+
+    quality = 85
+    while True:
+        output.seek(0)
+        output.truncate(0)
+        img.save(output, format="JPEG", quality=quality, optimize=True)
+
+        if output.tell() <= 900_000 or quality <= 40:
+            break
+
+        quality -= 5
+
+    return Image(data=output.getvalue(), format="jpeg")
 
 if __name__ == "__main__":
-    mcp.run()      # stdio transport by default
+    mcp.run()

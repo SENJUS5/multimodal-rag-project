@@ -7,13 +7,15 @@ details live in exactly one place.
 """
 
 import os
+from dotenv import load_dotenv
+load_dotenv()
 import hashlib
 import time
 from dataclasses import dataclass, field
 from typing import Optional
 
 import voyageai
-import anthropic
+from ollama import chat
 from supabase import create_client, Client
 
 
@@ -23,17 +25,13 @@ from supabase import create_client, Client
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]   # service key: needed to write
 VOYAGE_API_KEY = os.environ["VOYAGE_API_KEY"]
-ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
-
 EMBED_MODEL = "voyage-3"          # 1024-dim, must match vector(1024) in schema
 EMBED_DIM = 1024
-CAPTION_MODEL = "claude-sonnet-4-6"
+CAPTION_MODEL = "qwen2.5vl:3b"
 BATCH_SIZE = 128                  # Voyage accepts batches; keeps requests cheap
 
-voyage = voyageai.Client(api_key=VOYAGE_API_KEY)
-claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
+voyage = voyageai.Client(api_key=VOYAGE_API_KEY)
 
 # ---------------------------------------------------------------------------
 # Chunk: the unit every loader produces and the pipeline consumes.
@@ -72,34 +70,36 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 
 
 # ---------------------------------------------------------------------------
-# Vision captioning — turns an image into a rich text description we can embed.
-# This is our "multimodal" strategy: caption-then-embed, single text vector space.
+# Vision captioning — local Ollama vision model.
+# Images are captioned locally, then the caption is embedded into the
+# same Voyage text vector space used by the rest of the RAG pipeline.
 # ---------------------------------------------------------------------------
+
 def caption_image(image_b64: str, media_type: str, context: str = "") -> str:
     prompt = (
         "Describe this image in detail for a search index. Capture any text, "
-        "diagrams, UI elements, code, charts, or structure visible. Be specific "
-        "and factual so someone could find this image by searching its contents."
+        "diagrams, UI elements, code, charts, objects, and structure visible. "
+        "Be specific and factual so someone could find this image by searching "
+        "its contents. Return only the description."
     )
+
     if context:
-        prompt += f"\nContext about where this image came from: {context}"
+        prompt += f"\\nContext about where this image came from: {context}"
 
-    msg = claude.messages.create(
+    response = chat(
         model=CAPTION_MODEL,
-        max_tokens=1000,
-        messages=[{
-            "role": "user",
-            "content": [
-                {"type": "image", "source": {
-                    "type": "base64", "media_type": media_type, "data": image_b64}},
-                {"type": "text", "text": prompt},
-            ],
-        }],
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+                "images": [image_b64],
+            }
+        ],
+        options={"num_ctx": 8192},
     )
-    return "".join(b.text for b in msg.content if b.type == "text").strip()
+    return response["message"]["content"].strip()
 
 
-# ---------------------------------------------------------------------------
 # Upsert — embed any un-embedded chunks, then write. on_conflict skips dupes
 # via the (content_hash, source_path) unique index, so re-running ingest is safe.
 # ---------------------------------------------------------------------------
@@ -125,3 +125,4 @@ def upsert_chunks(chunks: list[Chunk]) -> int:
         rows, on_conflict="content_hash,source_path", ignore_duplicates=True
     ).execute()
     return len(rows)
+
